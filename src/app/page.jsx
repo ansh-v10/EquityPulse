@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import DataGrid from '../components/DataGrid';
@@ -40,6 +40,31 @@ const DEFAULT_FILTERS = {
   recentlyUpdated: false
 };
 
+function SkeletonGrid() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', overflow: 'hidden' }}>
+      <div className="grid-header-row" style={{ height: '36px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+        <div style={{ width: '36px' }}></div>
+        <div style={{ width: '100px', padding: '0 8px' }}>Symbol</div>
+        <div style={{ width: '160px', padding: '0 8px' }}>Company</div>
+        <div style={{ width: '100px', padding: '0 8px' }}>Sector</div>
+        <div style={{ width: '100px', padding: '0 8px', marginLeft: 'auto' }}>LTP</div>
+        <div style={{ width: '80px', padding: '0 8px' }}>Change%</div>
+      </div>
+      {Array.from({ length: 20 }).map((_, idx) => (
+        <div key={idx} className="skeleton-row" style={{ display: 'flex', alignItems: 'center', height: '36px', borderBottom: '1px solid var(--border)', padding: '0 8px' }}>
+          <div className="skeleton-cell" style={{ width: '20px', height: '16px', marginRight: '16px' }}></div>
+          <div className="skeleton-cell" style={{ width: '80px', height: '16px', marginRight: '20px' }}></div>
+          <div className="skeleton-cell" style={{ width: '140px', height: '16px', marginRight: '20px' }}></div>
+          <div className="skeleton-cell" style={{ width: '80px', height: '16px', marginRight: '20px' }}></div>
+          <div className="skeleton-cell" style={{ width: '80px', height: '16px', marginLeft: 'auto', marginRight: '20px' }}></div>
+          <div className="skeleton-cell" style={{ width: '60px', height: '16px' }}></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [stocks, setStocks] = useState([]);
@@ -55,7 +80,12 @@ export default function Home() {
     const data = generateMockStocks(5000);
     setStocks(data);
     setFilteredStocks(data);
-    setIsLoading(false);
+
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -70,6 +100,7 @@ export default function Home() {
     if (stocks.length === 0) return;
 
     const start = performance.now();
+
     const activePredicates = [];
 
     const getSelectivity = (type) => {
@@ -212,6 +243,35 @@ export default function Home() {
     }));
   };
 
+  const handleApplyPreset = (presetName) => {
+    const cleanFilters = { ...DEFAULT_FILTERS };
+    if (presetName === 'Value Stocks') {
+      cleanFilters.pe = [-100, 15];
+      cleanFilters.roe = [15, 200];
+      cleanFilters.debtToEquity = [0, 0.5];
+      cleanFilters.dividendYield = [2, 25];
+    } else if (presetName === 'Growth Momentum') {
+      cleanFilters.revenueGrowthYoY = [20, 500];
+      cleanFilters.profitGrowthYoY = [20, 1000];
+      cleanFilters.rsi14 = [40, 70];
+      cleanFilters.priceVsSma50 = 'Above';
+    } else if (presetName === 'Large Cap Quality') {
+      cleanFilters.marketCap = [20000, 500000];
+      cleanFilters.roce = [15, 200];
+      cleanFilters.promoterHolding = [50, 100];
+    } else if (presetName === 'Technical Breakout') {
+      cleanFilters.priceVsSma200 = 'Above';
+      cleanFilters.rsi14 = [50, 70];
+      cleanFilters.volumeVsAvg = '2x';
+      cleanFilters.bollingerPosition = 'Within';
+    }
+    setFilters(cleanFilters);
+  };
+
+  const handleClearAll = () => {
+    setFilters(DEFAULT_FILTERS);
+  };
+
   const handleToggleWatchlist = (symbol) => {
     setWatchlist(prev => {
       const next = new Set(prev);
@@ -236,6 +296,96 @@ export default function Home() {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
+  const getActiveChips = () => {
+    const chips = [];
+
+    const addRangeChip = (key, label, unit = '') => {
+      const val = filters[key];
+      const def = DEFAULT_FILTERS[key];
+      if (val[0] !== def[0] || val[1] !== def[1]) {
+        chips.push({
+          key,
+          label: `${label}: ${val[0]}${unit} - ${val[1]}${unit}`,
+          reset: () => setFilters(prev => ({ ...prev, [key]: def }))
+        });
+      }
+    };
+
+    addRangeChip('marketCap', 'Market Cap', ' Cr');
+    addRangeChip('pe', 'P/E');
+    addRangeChip('pb', 'P/B');
+    addRangeChip('dividendYield', 'Div Yield', '%');
+    addRangeChip('eps', 'EPS', '₹');
+    addRangeChip('roe', 'ROE', '%');
+    addRangeChip('roce', 'ROCE', '%');
+    addRangeChip('debtToEquity', 'D/E');
+    addRangeChip('currentRatio', 'Current');
+    addRangeChip('promoterHolding', 'Promoter', '%');
+    addRangeChip('revenueGrowthYoY', 'Rev Growth', '%');
+    addRangeChip('profitGrowthYoY', 'Profit Growth', '%');
+
+    addRangeChip('lastPrice', 'LTP', '₹');
+    addRangeChip('week52HighProximity', '52W High Prox', '%');
+    addRangeChip('week52LowProximity', '52W Low Prox', '%');
+    addRangeChip('avgVolume20D', 'Avg Vol');
+    addRangeChip('beta', 'Beta');
+    addRangeChip('dayChange', 'Day Change', '%');
+
+    addRangeChip('rsi14', 'RSI');
+    addRangeChip('atr', 'ATR');
+
+    const addMultiChip = (key, label) => {
+      const val = filters[key];
+      if (val.length > 0) {
+        chips.push({
+          key,
+          label: `${label}: ${val.join(', ')}`,
+          reset: () => setFilters(prev => ({ ...prev, [key]: [] }))
+        });
+      }
+    };
+
+    addMultiChip('sectors', 'Sectors');
+    addMultiChip('marketCapCategories', 'Cap');
+    addMultiChip('indexMemberships', 'Indices');
+
+    const addSingleChip = (key, label) => {
+      const val = filters[key];
+      if (val !== 'All') {
+        chips.push({
+          key,
+          label: `${label}: ${val}`,
+          reset: () => setFilters(prev => ({ ...prev, [key]: 'All' }))
+        });
+      }
+    };
+
+    addSingleChip('macdSignal', 'MACD');
+    addSingleChip('priceVsSma50', 'SMA 50');
+    addSingleChip('priceVsSma200', 'SMA 200');
+    addSingleChip('bollingerPosition', 'Bollinger');
+    addSingleChip('volumeVsAvg', 'Volume vs Avg');
+
+    if (filters.watchlistOnly) {
+      chips.push({
+        key: 'watchlistOnly',
+        label: 'Watchlist Only',
+        reset: () => setFilters(prev => ({ ...prev, watchlistOnly: false }))
+      });
+    }
+
+    if (filters.recentlyUpdated) {
+      chips.push({
+        key: 'recentlyUpdated',
+        label: 'Recently Updated',
+        reset: () => setFilters(prev => ({ ...prev, recentlyUpdated: false }))
+      });
+    }
+
+    return chips;
+  };
+
+  const activeChips = getActiveChips();
   const selectedStockObj = stocks.find(s => s.symbol === selectedSymbol);
 
   return (
@@ -250,18 +400,47 @@ export default function Home() {
           onToggleCollapse={handleToggleSidebar}
           filters={filters}
           onFilterChange={handleFilterChange}
-          onApplyPreset={() => {}}
-          onClearAll={() => setFilters(DEFAULT_FILTERS)}
+          onApplyPreset={handleApplyPreset}
+          onClearAll={handleClearAll}
         />
 
         <div style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <DataGrid
-            stocks={filteredStocks}
-            selectedSymbol={selectedSymbol}
-            onSelectStock={handleSelectStock}
-            watchlist={watchlist}
-            onToggleWatchlist={handleToggleWatchlist}
-          />
+          {activeChips.length > 0 && (
+            <div className="chips-bar" role="status" aria-live="polite">
+              <span className="chips-label">Active:</span>
+              {activeChips.map((chip) => (
+                <div key={chip.key} className="chip">
+                  <span>{chip.label}</span>
+                  <button className="chip-remove" onClick={chip.reset} aria-label={`Remove filter: ${chip.label}`}>
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button className="clear-all-btn" onClick={handleClearAll}>
+                Clear All
+              </button>
+            </div>
+          )}
+
+          {isLoading ? (
+            <SkeletonGrid />
+          ) : (
+            <div style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.4s ease-out', overflow: 'hidden' }}>
+              <style jsx global>{`
+                @keyframes fadeIn {
+                  from { opacity: 0; }
+                  to { opacity: 1; }
+                }
+              `}</style>
+              <DataGrid
+                stocks={filteredStocks}
+                selectedSymbol={selectedSymbol}
+                onSelectStock={handleSelectStock}
+                watchlist={watchlist}
+                onToggleWatchlist={handleToggleWatchlist}
+              />
+            </div>
+          )}
         </div>
 
         {selectedSymbol && (
