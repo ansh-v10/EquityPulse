@@ -12,6 +12,8 @@ export default function Header({ stocks, onSelectStock }) {
   const [nifty, setNifty] = useState({ price: 24532.15, change: 0.32 });
   const [sensex, setSensex] = useState({ price: 80487.45, change: 0.28 });
 
+  const deployId = process.env.NEXT_PUBLIC_DEPLOY_ID || null;
+
   useEffect(() => {
     const timer = setInterval(() => {
       setNifty(prev => {
@@ -94,6 +96,7 @@ export default function Header({ stocks, onSelectStock }) {
           </svg>
         </div>
         <span className="logo-text">EquityPulse</span>
+        {deployId && <span className="deploy-badge">Deploy #{deployId}</span>}
       </div>
 
       <div className="search-container" ref={dropdownRef}>
