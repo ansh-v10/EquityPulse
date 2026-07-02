@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart } from 'lightweight-charts';
+import { createChart, CandlestickSeries, LineSeries, AreaSeries } from 'lightweight-charts';
 
 function calculateSMA(data, period) {
   const sma = [];
@@ -220,7 +220,7 @@ export default function TechnicalChart({
       height: 380,
     });
 
-    const candleSeries = chart.addCandlestickSeries({
+    const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: '#3fb950', downColor: '#f85149',
       borderUpColor: '#2ea043', borderDownColor: '#da3633',
       wickUpColor: '#3fb950', wickDownColor: '#f85149',
@@ -230,16 +230,16 @@ export default function TechnicalChart({
     candleSeriesRef.current = candleSeries;
 
     const indicators = {};
-    indicators.SMA20 = chart.addLineSeries({ color: '#3b82f6', lineWidth: 1.5 });
-    indicators.SMA50 = chart.addLineSeries({ color: '#f97316', lineWidth: 1.5 });
-    indicators.SMA200 = chart.addLineSeries({ color: '#8b5cf6', lineWidth: 1.5 });
-    indicators.EMA12 = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1.5 });
-    indicators.EMA26 = chart.addLineSeries({ color: '#ec4899', lineWidth: 1.5 });
+    indicators.SMA20 = chart.addSeries(LineSeries, { color: '#3b82f6', lineWidth: 1.5 });
+    indicators.SMA50 = chart.addSeries(LineSeries, { color: '#f97316', lineWidth: 1.5 });
+    indicators.SMA200 = chart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1.5 });
+    indicators.EMA12 = chart.addSeries(LineSeries, { color: '#06b6d4', lineWidth: 1.5 });
+    indicators.EMA26 = chart.addSeries(LineSeries, { color: '#ec4899', lineWidth: 1.5 });
 
-    indicators.bbUpper = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1, lineStyle: 1 });
-    indicators.bbMiddle = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1.5 });
-    indicators.bbLower = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1, lineStyle: 1 });
-    indicators.bbArea = chart.addAreaSeries({
+    indicators.bbUpper = chart.addSeries(LineSeries, { color: '#2f81f7', lineWidth: 1, lineStyle: 1 });
+    indicators.bbMiddle = chart.addSeries(LineSeries, { color: '#2f81f7', lineWidth: 1.5 });
+    indicators.bbLower = chart.addSeries(LineSeries, { color: '#2f81f7', lineWidth: 1, lineStyle: 1 });
+    indicators.bbArea = chart.addSeries(AreaSeries, {
       topColor: 'rgba(47, 129, 247, 0.1)',
       bottomColor: 'rgba(47, 129, 247, 0.1)',
       lineColor: 'transparent',
@@ -332,9 +332,9 @@ export default function TechnicalChart({
         height: 100,
       });
 
-      const overboughtLine = rsiChart.addLineSeries({ color: '#f85149', lineWidth: 1, lineStyle: 1 });
-      const oversoldLine = rsiChart.addLineSeries({ color: '#3fb950', lineWidth: 1, lineStyle: 1 });
-      const rsiSeries = rsiChart.addLineSeries({ color: '#8b5cf6', lineWidth: 1.5 });
+      const overboughtLine = rsiChart.addSeries(LineSeries, { color: '#f85149', lineWidth: 1, lineStyle: 1 });
+      const oversoldLine = rsiChart.addSeries(LineSeries, { color: '#3fb950', lineWidth: 1, lineStyle: 1 });
+      const rsiSeries = rsiChart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1.5 });
 
       if (ohlcvData && ohlcvData.length > 0) {
         const lineTimes = ohlcvData.map(d => ({ time: d.time, value: 70 }));
