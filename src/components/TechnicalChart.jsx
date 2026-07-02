@@ -3,15 +3,127 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart } from 'lightweight-charts';
 
+function calculateSMA(data, period) {
+  const sma = [];
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) {
+      sma.push({ time: data[i].time, value: null });
+      continue;
+    }
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += data[i - j].close;
+    }
+    sma.push({ time: data[i].time, value: sum / period });
+  }
+  return sma;
+}
+
+function calculateEMA(data, period) {
+  const ema = [];
+  const k = 2 / (period + 1);
+  let prevEma = null;
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) {
+      ema.push({ time: data[i].time, value: null });
+      continue;
+    }
+    if (i === period - 1) {
+      let sum = 0;
+      for (let j = 0; j < period; j++) {
+        sum += data[i - j].close;
+      }
+      prevEma = sum / period;
+      ema.push({ time: data[i].time, value: prevEma });
+      continue;
+    }
+    prevEma = data[i].close * k + prevEma * (1 - k);
+    ema.push({ time: data[i].time, value: prevEma });
+  }
+  return ema;
+}
+
+function calculateBollinger(data, period = 20, multiplier = 2) {
+  const upper = [];
+  const middle = [];
+  const lower = [];
+  const area = [];
+
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) {
+      upper.push({ time: data[i].time, value: null });
+      middle.push({ time: data[i].time, value: null });
+      lower.push({ time: data[i].time, value: null });
+      area.push({ time: data[i].time, value: null });
+      continue;
+    }
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += data[i - j].close;
+    }
+    const avg = sum / period;
+    let varianceSum = 0;
+    for (let j = 0; j < period; j++) {
+      varianceSum += Math.pow(data[i - j].close - avg, 2);
+    }
+    const stdDev = Math.sqrt(varianceSum / period);
+    const upVal = avg + multiplier * stdDev;
+    const lowVal = avg - multiplier * stdDev;
+
+    upper.push({ time: data[i].time, value: upVal });
+    middle.push({ time: data[i].time, value: avg });
+    lower.push({ time: data[i].time, value: lowVal });
+    area.push({ time: data[i].time, top: upVal, bottom: lowVal });
+  }
+  return { upper, middle, lower, area };
+}
+
+function calculateRSI(data, period = 14) {
+  const rsi = [];
+  if (data.length === 0) return rsi;
+  const gains = [];
+  const losses = [];
+  for (let i = 1; i < data.length; i++) {
+    const diff = data[i].close - data[i - 1].close;
+    gains.push(diff > 0 ? diff : 0);
+    losses.push(diff < 0 ? Math.abs(diff) : 0);
+  }
+  let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = 0; i < data.length; i++) {
+    if (i < period) {
+      rsi.push({ time: data[i].time, value: null });
+      continue;
+    }
+    if (i > period) {
+      const gain = gains[i - 1];
+      const loss = losses[i - 1];
+      avgGain = (avgGain * (period - 1) + gain) / period;
+      avgLoss = (avgLoss * (period - 1) + loss) / period;
+    }
+    if (avgLoss === 0) {
+      rsi.push({ time: data[i].time, value: 100 });
+    } else {
+      const rs = avgGain / avgLoss;
+      rsi.push({ time: data[i].time, value: 100 - 100 / (1 + rs) });
+    }
+  }
+  return rsi;
+}
+
 export default function TechnicalChart({
   ohlcvData,
   timeframe = '1D',
   activeIndicators = {},
 }) {
   const containerRef = useRef(null);
+  const rsiContainerRef = useRef(null);
   const chartRef = useRef(null);
+  const rsiChartRef = useRef(null);
   const candleSeriesRef = useRef(null);
-  const tooltipRef = useRef(null);
+  const indicatorSeriesRef = useRef({});
+  const rsiSeriesRef = useRef(null);
+
   const [tooltipState, setTooltipState] = useState({
     visible: false,
     x: 0,
@@ -28,46 +140,49 @@ export default function TechnicalChart({
     if (!containerRef.current) return;
 
     const chart = createChart(containerRef.current, {
-      layout: {
-        background: { color: '#0d1117' },
-        textColor: '#8b949e',
-      },
-      grid: {
-        vertLines: { color: '#21262d' },
-        horzLines: { color: '#21262d' },
-      },
-      crosshair: {
-        mode: 0,
-      },
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-        borderColor: '#30363d',
-      },
-      rightPriceScale: {
-        borderColor: '#30363d',
-      },
+      layout: { background: { color: '#0d1117' }, textColor: '#8b949e' },
+      grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+      crosshair: { mode: 0 },
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#30363d' },
+      rightPriceScale: { borderColor: '#30363d' },
       width: containerRef.current.clientWidth,
       height: 380,
     });
 
     const candleSeries = chart.addCandlestickSeries({
-      upColor: '#3fb950',
-      downColor: '#f85149',
-      borderUpColor: '#2ea043',
-      borderDownColor: '#da3633',
-      wickUpColor: '#3fb950',
-      wickDownColor: '#f85149',
+      upColor: '#3fb950', downColor: '#f85149',
+      borderUpColor: '#2ea043', borderDownColor: '#da3633',
+      wickUpColor: '#3fb950', wickDownColor: '#f85149',
     });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
 
+    const indicators = {};
+    indicators.SMA20 = chart.addLineSeries({ color: '#3b82f6', lineWidth: 1.5 });
+    indicators.SMA50 = chart.addLineSeries({ color: '#f97316', lineWidth: 1.5 });
+    indicators.SMA200 = chart.addLineSeries({ color: '#8b5cf6', lineWidth: 1.5 });
+    indicators.EMA12 = chart.addLineSeries({ color: '#06b6d4', lineWidth: 1.5 });
+    indicators.EMA26 = chart.addLineSeries({ color: '#ec4899', lineWidth: 1.5 });
+
+    indicators.bbUpper = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1, lineStyle: 1 });
+    indicators.bbMiddle = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1.5 });
+    indicators.bbLower = chart.addLineSeries({ color: '#2f81f7', lineWidth: 1, lineStyle: 1 });
+    indicators.bbArea = chart.addAreaSeries({
+      topColor: 'rgba(47, 129, 247, 0.1)',
+      bottomColor: 'rgba(47, 129, 247, 0.1)',
+      lineColor: 'transparent',
+      lineWidth: 0,
+    });
+
+    indicatorSeriesRef.current = indicators;
+
     const handleResize = () => {
       if (containerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: containerRef.current.clientWidth
-        });
+        chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
+      }
+      if (rsiContainerRef.current && rsiChartRef.current) {
+        rsiChartRef.current.applyOptions({ width: rsiContainerRef.current.clientWidth });
       }
     };
     window.addEventListener('resize', handleResize);
@@ -87,11 +202,10 @@ export default function TechnicalChart({
 
       const data = param.seriesData.get(candleSeries);
       if (data) {
-        const coordinate = param.point;
         setTooltipState({
           visible: true,
-          x: coordinate.x + 15,
-          y: coordinate.y + 15,
+          x: param.point.x + 15,
+          y: param.point.y + 15,
           date: param.time.toString(),
           open: data.open || data.value,
           high: data.high || data.value,
@@ -109,17 +223,108 @@ export default function TechnicalChart({
   }, []);
 
   useEffect(() => {
-    if (candleSeriesRef.current && ohlcvData) {
-      candleSeriesRef.current.setData(ohlcvData);
+    if (!rsiContainerRef.current || !activeIndicators.RSI) {
+      if (rsiChartRef.current) {
+        rsiChartRef.current.remove();
+        rsiChartRef.current = null;
+        rsiSeriesRef.current = null;
+      }
+      return;
     }
-  }, [ohlcvData]);
+
+    if (!rsiChartRef.current) {
+      const rsiChart = createChart(rsiContainerRef.current, {
+        layout: { background: { color: '#0d1117' }, textColor: '#8b949e' },
+        grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+        timeScale: { borderColor: '#30363d' },
+        rightPriceScale: { borderColor: '#30363d', minValuation: 0, maxValuation: 100 },
+        width: rsiContainerRef.current.clientWidth,
+        height: 100,
+      });
+
+      const overboughtLine = rsiChart.addLineSeries({ color: '#f85149', lineWidth: 1, lineStyle: 1 });
+      const oversoldLine = rsiChart.addLineSeries({ color: '#3fb950', lineWidth: 1, lineStyle: 1 });
+      const rsiSeries = rsiChart.addLineSeries({ color: '#8b5cf6', lineWidth: 1.5 });
+
+      if (ohlcvData && ohlcvData.length > 0) {
+        const lineTimes = ohlcvData.map(d => ({ time: d.time, value: 70 }));
+        const oversoldTimes = ohlcvData.map(d => ({ time: d.time, value: 30 }));
+        overboughtLine.setData(lineTimes);
+        oversoldLine.setData(oversoldTimes);
+      }
+
+      rsiChartRef.current = rsiChart;
+      rsiSeriesRef.current = rsiSeries;
+    }
+  }, [activeIndicators.RSI, ohlcvData]);
+
+  useEffect(() => {
+    if (!candleSeriesRef.current || !ohlcvData || ohlcvData.length === 0) return;
+
+    candleSeriesRef.current.setData(ohlcvData);
+
+    const indSeries = indicatorSeriesRef.current;
+
+    if (activeIndicators.SMA20) {
+      indSeries.SMA20.setData(calculateSMA(ohlcvData, 20));
+    } else {
+      indSeries.SMA20.setData([]);
+    }
+
+    if (activeIndicators.SMA50) {
+      indSeries.SMA50.setData(calculateSMA(ohlcvData, 50));
+    } else {
+      indSeries.SMA50.setData([]);
+    }
+
+    if (activeIndicators.SMA200) {
+      indSeries.SMA200.setData(calculateSMA(ohlcvData, 200));
+    } else {
+      indSeries.SMA200.setData([]);
+    }
+
+    if (activeIndicators.EMA12) {
+      indSeries.EMA12.setData(calculateEMA(ohlcvData, 12));
+    } else {
+      indSeries.EMA12.setData([]);
+    }
+
+    if (activeIndicators.EMA26) {
+      indSeries.EMA26.setData(calculateEMA(ohlcvData, 26));
+    } else {
+      indSeries.EMA26.setData([]);
+    }
+
+    if (activeIndicators.BB) {
+      const bb = calculateBollinger(ohlcvData, 20, 2);
+      indSeries.bbUpper.setData(bb.upper);
+      indSeries.bbMiddle.setData(bb.middle);
+      indSeries.bbLower.setData(bb.lower);
+      indSeries.bbArea.setData(bb.upper.map((item, idx) => ({
+        time: item.time,
+        value: item.value,
+        target: bb.lower[idx].value
+      })));
+    } else {
+      indSeries.bbUpper.setData([]);
+      indSeries.bbMiddle.setData([]);
+      indSeries.bbLower.setData([]);
+      indSeries.bbArea.setData([]);
+    }
+
+    if (activeIndicators.RSI && rsiSeriesRef.current) {
+      rsiSeriesRef.current.setData(calculateRSI(ohlcvData, 14));
+    }
+  }, [ohlcvData, activeIndicators]);
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <div ref={containerRef} style={{ width: '100%', height: '380px' }} />
+      {activeIndicators.RSI && (
+        <div ref={rsiContainerRef} style={{ width: '100%', height: '100px', borderTop: '1px solid var(--border)' }} />
+      )}
       {tooltipState.visible && (
         <div
-          ref={tooltipRef}
           className="chart-tooltip"
           style={{
             left: `${tooltipState.x}px`,
