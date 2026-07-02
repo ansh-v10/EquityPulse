@@ -289,3 +289,52 @@ export function generateMockStocks(totalCount = 5000) {
 
   return stocks;
 }
+
+const ohlcvCache = new Map();
+
+export function getOHLCV(symbol, startPrice, beta, avgVolume) {
+  if (ohlcvCache.has(symbol)) {
+    return ohlcvCache.get(symbol);
+  }
+  const data = generateOHLCV(startPrice, 252, beta * 0.02, avgVolume);
+  ohlcvCache.set(symbol, data);
+  return data;
+}
+
+export function generateOHLCV(startPrice, days = 252, volatility = 0.02, avgVolume = 1000000) {
+  const ohlcv = [];
+  let prevClose = startPrice;
+  let currentDate = new Date();
+  currentDate.setDate(currentDate.getDate() - Math.round(days * 1.55));
+  
+  while (ohlcv.length < days) {
+    const dayOfWeek = currentDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      const dailyReturn = normalRandom(0.0002, volatility);
+      const close = parseFloat((prevClose * (1 + dailyReturn)).toFixed(2));
+      const open = prevClose;
+      const intraday1 = parseFloat((open * (1 + normalRandom(0, volatility * 0.5))).toFixed(2));
+      const intraday2 = parseFloat((close * (1 + normalRandom(0, volatility * 0.5))).toFixed(2));
+      const high = parseFloat((Math.max(open, close, intraday1, intraday2) * (1 + Math.abs(normalRandom(0, 1)) * 0.003)).toFixed(2));
+      const low = parseFloat((Math.min(open, close, intraday1, intraday2) * (1 - Math.abs(normalRandom(0, 1)) * 0.003)).toFixed(2));
+      const volMultiplier = 1.0 + Math.abs(dailyReturn) * 15.0 + Math.random() * 0.5;
+      const volume = Math.round(avgVolume * volMultiplier);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      ohlcv.push({
+        time: dateStr,
+        open,
+        high,
+        low,
+        close,
+        volume
+      });
+      
+      prevClose = close;
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return ohlcv;
+}
+
