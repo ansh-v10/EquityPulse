@@ -11,26 +11,63 @@ export default function Header({ stocks, onSelectStock }) {
 
   const [nifty, setNifty] = useState({ price: 24532.15, change: 0.32 });
   const [sensex, setSensex] = useState({ price: 80487.45, change: 0.28 });
+  const niftyRef = useRef({ price: 24532.15, change: 0.32 });
+  const sensexRef = useRef({ price: 80487.45, change: 0.28 });
 
   const deployId = process.env.NEXT_PUBLIC_DEPLOY_ID || null;
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    const fetchIndices = async () => {
+      const apiKey = process.env.NEXT_PUBLIC_INDIAN_API_KEY;
+      if (!apiKey) return;
+      try {
+        const headers = { 'X-API-Key': apiKey };
+        const niftyRes = await fetch('https://stock.indianapi.in/stock?name=NIFTYBEES', { headers });
+        if (niftyRes.ok) {
+          const data = await niftyRes.json();
+          if (data && !data.error) {
+            const rawPrice = parseFloat(data.currentPrice?.NSE || data.stockDetailsReusableData?.price || '267.27');
+            const pct = parseFloat(data.percentChange || data.stockDetailsReusableData?.percentChange || '0.78');
+            niftyRef.current = { price: rawPrice * 100, change: pct };
+            setNifty({ price: parseFloat((rawPrice * 100).toFixed(2)), change: parseFloat(pct.toFixed(2)) });
+          }
+        }
+        const sensexRes = await fetch('https://stock.indianapi.in/stock?name=SENSEX', { headers });
+        if (sensexRes.ok) {
+          const data = await sensexRes.json();
+          if (data && !data.error) {
+            const rawPrice = parseFloat(data.currentPrice?.BSE || data.stockDetailsReusableData?.price || '867.96');
+            const pct = parseFloat(data.percentChange || data.stockDetailsReusableData?.percentChange || '0.69');
+            sensexRef.current = { price: rawPrice * 100, change: pct };
+            setSensex({ price: parseFloat((rawPrice * 100).toFixed(2)), change: parseFloat(pct.toFixed(2)) });
+          }
+        }
+      } catch (err) {
+      }
+    };
+
+    fetchIndices();
+    const apiInterval = setInterval(fetchIndices, 30000);
+
+    const simInterval = setInterval(() => {
       setNifty(prev => {
-        const delta = (Math.random() - 0.48) * 15;
-        const newPrice = Math.max(10000, prev.price + delta);
-        const change = ((newPrice - 24450) / 24450) * 100;
-        return { price: parseFloat(newPrice.toFixed(2)), change: parseFloat(change.toFixed(2)) };
+        const delta = (Math.random() - 0.48) * 4;
+        const newPrice = Math.max(10000, niftyRef.current.price + delta);
+        niftyRef.current.price = newPrice;
+        return { price: parseFloat(newPrice.toFixed(2)), change: niftyRef.current.change };
       });
       setSensex(prev => {
-        const delta = (Math.random() - 0.48) * 50;
-        const newPrice = Math.max(30000, prev.price + delta);
-        const change = ((newPrice - 80200) / 80200) * 100;
-        return { price: parseFloat(newPrice.toFixed(2)), change: parseFloat(change.toFixed(2)) };
+        const delta = (Math.random() - 0.48) * 12;
+        const newPrice = Math.max(30000, sensexRef.current.price + delta);
+        sensexRef.current.price = newPrice;
+        return { price: parseFloat(newPrice.toFixed(2)), change: sensexRef.current.change };
       });
     }, 5000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(apiInterval);
+      clearInterval(simInterval);
+    };
   }, []);
 
   useEffect(() => {

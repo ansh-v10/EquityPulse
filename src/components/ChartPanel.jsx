@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { formatIndianNumber, getOHLCV } from '../utils/mockData';
 import TechnicalChart from './TechnicalChart';
 
@@ -16,6 +16,54 @@ export default function ChartPanel({ selectedStock, onClose }) {
     RSI: false,
     VOL: false
   });
+  const [liveStock, setLiveStock] = useState(selectedStock);
+
+  useEffect(() => {
+    setLiveStock(selectedStock);
+    if (!selectedStock) return;
+
+    const fetchLive = async () => {
+      const apiKey = process.env.NEXT_PUBLIC_INDIAN_API_KEY;
+      if (!apiKey) return;
+      try {
+        const headers = { 'X-API-Key': apiKey };
+        const res = await fetch(`https://stock.indianapi.in/stock?name=${encodeURIComponent(selectedStock.symbol)}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && !data.error) {
+            const livePrice = parseFloat(data.currentPrice?.NSE || data.currentPrice?.BSE || data.stockDetailsReusableData?.price || selectedStock.lastPrice);
+            const pct = parseFloat(data.percentChange || data.stockDetailsReusableData?.percentChange || selectedStock.changePercent);
+            const closeVal = parseFloat(data.stockDetailsReusableData?.close || selectedStock.previousClose || (livePrice / (1 + pct / 100)));
+            const openVal = parseFloat(data.stockDetailsReusableData?.open || selectedStock.dayOpen || closeVal);
+            const highVal = parseFloat(data.stockDetailsReusableData?.high || selectedStock.dayHigh || Math.max(livePrice, openVal));
+            const lowVal = parseFloat(data.stockDetailsReusableData?.low || selectedStock.dayLow || Math.min(livePrice, openVal));
+            const yHigh = parseFloat(data.yearHigh || data.stockDetailsReusableData?.yhigh || selectedStock.week52High);
+            const yLow = parseFloat(data.yearLow || data.stockDetailsReusableData?.ylow || selectedStock.week52Low);
+            
+            const rawMcap = data.stockDetailsReusableData?.marketCap;
+            const liveMcap = rawMcap && rawMcap !== '-' ? parseFloat(rawMcap) : selectedStock.marketCap;
+
+            setLiveStock(prev => ({
+              ...prev,
+              lastPrice: livePrice,
+              changePercent: pct,
+              changeAbsolute: livePrice - closeVal,
+              previousClose: closeVal,
+              dayOpen: openVal,
+              dayHigh: highVal,
+              dayLow: lowVal,
+              week52High: yHigh,
+              week52Low: yLow,
+              marketCap: liveMcap,
+              companyName: data.companyName || prev.companyName
+            }));
+          }
+        }
+      } catch (err) {
+      }
+    };
+    fetchLive();
+  }, [selectedStock]);
 
   const toggleIndicator = (ind) => {
     setActiveIndicators(prev => ({
@@ -38,14 +86,14 @@ export default function ChartPanel({ selectedStock, onClose }) {
   };
 
   const rawOhlcv = useMemo(() => {
-    if (!selectedStock) return [];
+    if (!liveStock) return [];
     return getOHLCV(
-      selectedStock.symbol,
-      selectedStock.lastPrice,
-      selectedStock.beta,
-      selectedStock.volume
+      liveStock.symbol,
+      liveStock.lastPrice,
+      liveStock.beta,
+      liveStock.volume
     );
-  }, [selectedStock]);
+  }, [liveStock]);
 
   const aggregatedOhlcv = useMemo(() => {
     if (rawOhlcv.length === 0) return [];
@@ -92,7 +140,7 @@ export default function ChartPanel({ selectedStock, onClose }) {
     );
   }
 
-  const isPositive = selectedStock.changePercent >= 0;
+  const isPositive = liveStock.changePercent >= 0;
 
   return (
     <aside className="chart-panel" aria-label="Stock details panel">
@@ -100,12 +148,12 @@ export default function ChartPanel({ selectedStock, onClose }) {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px', fontWeight: '600', fontFamily: 'JetBrains Mono, monospace' }}>
-              {selectedStock.symbol}
+              {liveStock.symbol}
             </span>
-            <span className="sector-badge">{selectedStock.sector}</span>
+            <span className="sector-badge">{liveStock.sector}</span>
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {selectedStock.companyName}
+            {liveStock.companyName}
           </div>
         </div>
         <button className="close-btn" onClick={onClose} aria-label="Close panel">
@@ -116,10 +164,10 @@ export default function ChartPanel({ selectedStock, onClose }) {
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px 16px 8px 16px', display: 'flex', alignItems: 'baseline', gap: '12px' }}>
           <span style={{ fontSize: '24px', fontWeight: '600', fontFamily: 'JetBrains Mono, monospace' }}>
-            {formatIndianNumber(selectedStock.lastPrice, 'price')}
+            {formatIndianNumber(liveStock.lastPrice, 'price')}
           </span>
           <span style={{ fontSize: '14px', fontWeight: '500' }} className={isPositive ? 'pos-val' : 'neg-val'}>
-            {isPositive ? '▲' : '▼'} {Math.abs(selectedStock.changePercent).toFixed(2)}% ({formatIndianNumber(selectedStock.changeAbsolute)})
+            {isPositive ? '▲' : '▼'} {Math.abs(liveStock.changePercent).toFixed(2)}% ({formatIndianNumber(liveStock.changeAbsolute)})
           </span>
         </div>
 
@@ -175,49 +223,49 @@ export default function ChartPanel({ selectedStock, onClose }) {
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Market Cap</span>
                 <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
-                  {formatIndianNumber(selectedStock.marketCap, 'mcap')}
+                  {formatIndianNumber(liveStock.marketCap, 'mcap')}
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>P/E Ratio</span>
                 <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
-                  {selectedStock.pe ? selectedStock.pe.toFixed(1) : '—'}
+                  {liveStock.pe ? liveStock.pe.toFixed(1) : '—'}
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>P/B Ratio</span>
                 <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
-                  {selectedStock.pb.toFixed(2)}
+                  {liveStock.pb.toFixed(2)}
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Div. Yield</span>
                 <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
-                  {selectedStock.dividendYield.toFixed(2)}%
+                  {liveStock.dividendYield.toFixed(2)}%
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ROE</span>
-                <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px', color: selectedStock.roe > 15 ? 'var(--positive)' : selectedStock.roe < 0 ? 'var(--negative)' : 'var(--text)' }}>
-                  {selectedStock.roe.toFixed(2)}%
+                <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px', color: liveStock.roe > 15 ? 'var(--positive)' : liveStock.roe < 0 ? 'var(--negative)' : 'var(--text)' }}>
+                  {liveStock.roe.toFixed(2)}%
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ROCE</span>
                 <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
-                  {selectedStock.roce.toFixed(2)}%
+                  {liveStock.roce.toFixed(2)}%
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Debt to Equity</span>
                 <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
-                  {selectedStock.debtToEquity.toFixed(2)}
+                  {liveStock.debtToEquity.toFixed(2)}
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Promoter Holding</span>
                 <span style={{ fontSize: '12px', fontWeight: '500', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
-                  {selectedStock.promoterHolding.toFixed(1)}%
+                  {liveStock.promoterHolding.toFixed(1)}%
                 </span>
               </div>
             </div>
@@ -238,19 +286,19 @@ export default function ChartPanel({ selectedStock, onClose }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>RSI (14)</span>
-                <span style={{ fontFamily: 'JetBrains Mono', fontWeight: '600', color: selectedStock.rsi14 > 70 ? 'var(--negative)' : selectedStock.rsi14 < 30 ? 'var(--positive)' : 'var(--warning)' }}>
-                  {selectedStock.rsi14}
+                <span style={{ fontFamily: 'JetBrains Mono', fontWeight: '600', color: liveStock.rsi14 > 70 ? 'var(--negative)' : liveStock.rsi14 < 30 ? 'var(--positive)' : 'var(--warning)' }}>
+                  {liveStock.rsi14}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>MACD Signal</span>
-                <span style={{ fontWeight: '600', color: selectedStock.macdSignal === 'Bullish' ? 'var(--positive)' : selectedStock.macdSignal === 'Bearish' ? 'var(--negative)' : 'var(--text)' }}>
-                  {selectedStock.macdSignal}
+                <span style={{ fontWeight: '600', color: liveStock.macdSignal === 'Bullish' ? 'var(--positive)' : liveStock.macdSignal === 'Bearish' ? 'var(--negative)' : 'var(--text)' }}>
+                  {liveStock.macdSignal}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Bollinger Bands</span>
-                <span>{selectedStock.bollingerPosition}</span>
+                <span>{liveStock.bollingerPosition}</span>
               </div>
             </div>
           </div>
