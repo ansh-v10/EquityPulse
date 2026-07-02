@@ -118,6 +118,7 @@ export default function TechnicalChart({
 }) {
   const containerRef = useRef(null);
   const rsiContainerRef = useRef(null);
+  const canvasRef = useRef(null);
   const chartRef = useRef(null);
   const rsiChartRef = useRef(null);
   const candleSeriesRef = useRef(null);
@@ -135,6 +136,76 @@ export default function TechnicalChart({
     close: 0,
     volume: 0
   });
+
+  const drawVolumeProfile = () => {
+    const canvas = canvasRef.current;
+    const chart = chartRef.current;
+    if (!canvas || !chart || !ohlcvData || ohlcvData.length === 0 || !activeIndicators.VOL) {
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const range = chart.timeScale().getVisibleRange();
+    if (!range) return;
+
+    const visibleCandles = ohlcvData.filter(d => d.time >= range.from && d.time <= range.to);
+    if (visibleCandles.length === 0) return;
+
+    let minPrice = Infinity;
+    let maxPrice = -Infinity;
+    visibleCandles.forEach(c => {
+      if (c.low < minPrice) minPrice = c.low;
+      if (c.high > maxPrice) maxPrice = c.high;
+    });
+
+    const bucketsCount = 30;
+    const bucketSize = (maxPrice - minPrice) / bucketsCount;
+    const buckets = Array(bucketsCount).fill(0);
+
+    visibleCandles.forEach(c => {
+      const lowIdx = Math.max(0, Math.min(bucketsCount - 1, Math.floor((c.low - minPrice) / bucketSize)));
+      const highIdx = Math.max(0, Math.min(bucketsCount - 1, Math.floor((c.high - minPrice) / bucketSize)));
+      const span = (highIdx - lowIdx) + 1;
+      const volPerBucket = c.volume / span;
+      for (let i = lowIdx; i <= highIdx; i++) {
+        buckets[i] += volPerBucket;
+      }
+    });
+
+    const maxVol = Math.max(...buckets);
+    if (maxVol === 0) return;
+
+    const canvasWidth = containerRef.current.clientWidth;
+    const profileWidth = canvasWidth * 0.25;
+
+    ctx.fillStyle = 'rgba(47, 129, 247, 0.15)';
+    ctx.strokeStyle = 'rgba(47, 129, 247, 0.3)';
+    ctx.lineWidth = 1;
+
+    for (let i = 0; i < bucketsCount; i++) {
+      const pStart = minPrice + i * bucketSize;
+      const pEnd = pStart + bucketSize;
+
+      const yStart = chart.priceScale('right').priceToCoordinate(pStart);
+      const yEnd = chart.priceScale('right').priceToCoordinate(pEnd);
+
+      if (yStart === null || yEnd === null) continue;
+
+      const barHeight = Math.abs(yStart - yEnd);
+      const barWidth = (buckets[i] / maxVol) * profileWidth;
+      const x = canvasWidth - barWidth - 60;
+      const y = Math.min(yStart, yEnd);
+
+      ctx.fillRect(x, y, barWidth, barHeight);
+      ctx.strokeRect(x, y, barWidth, barHeight);
+    }
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -184,6 +255,10 @@ export default function TechnicalChart({
       if (rsiContainerRef.current && rsiChartRef.current) {
         rsiChartRef.current.applyOptions({ width: rsiContainerRef.current.clientWidth });
       }
+      if (canvasRef.current && containerRef.current) {
+        canvasRef.current.width = containerRef.current.clientWidth;
+        drawVolumeProfile();
+      }
     };
     window.addEventListener('resize', handleResize);
 
@@ -216,11 +291,26 @@ export default function TechnicalChart({
       }
     });
 
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      drawVolumeProfile();
+    });
+
     return () => {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (canvasRef.current && containerRef.current) {
+      canvasRef.current.width = containerRef.current.clientWidth;
+      canvasRef.current.height = 380;
+    }
+  }, [ohlcvData]);
+
+  useEffect(() => {
+    drawVolumeProfile();
+  }, [activeIndicators.VOL, ohlcvData]);
 
   useEffect(() => {
     if (!rsiContainerRef.current || !activeIndicators.RSI) {
@@ -319,7 +409,20 @@ export default function TechnicalChart({
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
-      <div ref={containerRef} style={{ width: '100%', height: '380px' }} />
+      <div ref={containerRef} style={{ width: '100%', height: '380px', position: 'relative' }}>
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '380px',
+            pointerEvents: 'none',
+            zIndex: 10
+          }}
+        />
+      </div>
       {activeIndicators.RSI && (
         <div ref={rsiContainerRef} style={{ width: '100%', height: '100px', borderTop: '1px solid var(--border)' }} />
       )}
