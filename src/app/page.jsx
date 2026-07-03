@@ -549,7 +549,7 @@ export default function Home() {
 
   return (
     <div id="app">
-      <Header stocks={stocks} onSelectStock={handleSelectStock} />
+      <Header stocks={stocks} onSelectStock={handleSelectStock} connectionStatus={connectionStatus} />
 
       <main className="main-layout" id="main-content">
         <Sidebar
@@ -597,6 +597,7 @@ export default function Home() {
                 onSelectStock={handleSelectStock}
                 watchlist={watchlist}
                 onToggleWatchlist={handleToggleWatchlist}
+                onVisibleSymbolsChange={handleVisibleSymbolsChange}
               />
             </div>
           )}

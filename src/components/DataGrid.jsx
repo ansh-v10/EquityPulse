@@ -11,7 +11,8 @@ export default function DataGrid({
   selectedSymbol,
   onSelectStock,
   watchlist,
-  onToggleWatchlist
+  onToggleWatchlist,
+  onVisibleSymbolsChange
 }) {
   const containerRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -163,6 +164,16 @@ export default function DataGrid({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [sortedStocks, highlightedIndex, onSelectStock, onToggleWatchlist]);
+
+  const visibleList = useMemo(() => {
+    return sortedStocks.slice(startIndex, endIndex + 1).map(s => s.symbol);
+  }, [sortedStocks, startIndex, endIndex]);
+
+  useEffect(() => {
+    if (onVisibleSymbolsChange) {
+      onVisibleSymbolsChange(visibleList);
+    }
+  }, [visibleList, onVisibleSymbolsChange]);
 
   const visibleRows = useMemo(() => {
     const rows = [];
