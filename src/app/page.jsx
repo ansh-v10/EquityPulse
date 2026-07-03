@@ -142,6 +142,113 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    let timerId = null;
+    let simInterval = null;
+    const queueIndex = { val: 0 };
+
+    const getNextSymbolToPoll = () => {
+      if (selectedSymbol) return selectedSymbol;
+      
+      const watchlistArr = Array.from(watchlist);
+      if (watchlistArr.length > 0) {
+        const symbol = watchlistArr[queueIndex.val % watchlistArr.length];
+        queueIndex.val++;
+        return symbol;
+      }
+      
+      const visible = visibleSymbolsRef.current || [];
+      if (visible.length > 0) {
+        const symbol = visible[queueIndex.val % visible.length];
+        queueIndex.val++;
+        return symbol;
+      }
+
+      if (stocks.length > 0) {
+        const symbol = stocks[queueIndex.val % Math.min(stocks.length, 100)].symbol;
+        queueIndex.val++;
+        return symbol;
+      }
+      
+      return null;
+    };
+
+    const poll = async () => {
+      if (!active) return;
+      const symbol = getNextSymbolToPoll();
+      if (!symbol) {
+        timerId = setTimeout(poll, 1000);
+        return;
+      }
+
+      const apiKey = process.env.NEXT_PUBLIC_INDIAN_API_KEY;
+      if (!apiKey) {
+        timerId = setTimeout(poll, 1000);
+        return;
+      }
+
+      try {
+        const headers = { 'X-API-Key': apiKey };
+        const res = await fetch(`https://stock.indianapi.in/stock?name=${encodeURIComponent(symbol)}`, { headers });
+        if (res.status === 429) {
+          timerId = setTimeout(poll, 5000);
+          return;
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && !data.error) {
+            const livePrice = parseFloat(data.currentPrice?.NSE || data.currentPrice?.BSE || data.stockDetailsReusableData?.price);
+            if (!isNaN(livePrice)) {
+              const pct = parseFloat(data.percentChange || data.stockDetailsReusableData?.percentChange || '0');
+              const closeVal = parseFloat(data.stockDetailsReusableData?.close || (livePrice / (1 + pct / 100)));
+              updatesBufferRef.current[symbol] = {
+                lastPrice: livePrice,
+                changePercent: pct,
+                changeAbsolute: livePrice - closeVal,
+                previousClose: closeVal,
+                dayHigh: parseFloat(data.stockDetailsReusableData?.high || livePrice),
+                dayLow: parseFloat(data.stockDetailsReusableData?.low || livePrice),
+              };
+            }
+          }
+        }
+        timerId = setTimeout(poll, 400);
+      } catch (err) {
+        timerId = setTimeout(poll, 4000);
+      }
+    };
+
+    simInterval = setInterval(() => {
+      if (stocks.length === 0) return;
+      for (let i = 0; i < 5; i++) {
+        const randIdx = Math.floor(Math.random() * stocks.length);
+        const stock = stocks[randIdx];
+        if (stock && !updatesBufferRef.current[stock.symbol]) {
+          const delta = (Math.random() - 0.5) * 0.0005 * stock.lastPrice;
+          const nextPrice = parseFloat((stock.lastPrice + delta).toFixed(2));
+          updatesBufferRef.current[stock.symbol] = {
+            lastPrice: nextPrice,
+            changePercent: stock.changePercent + (delta / stock.previousClose) * 100,
+            changeAbsolute: nextPrice - stock.previousClose,
+            previousClose: stock.previousClose,
+            dayHigh: Math.max(stock.dayHigh, nextPrice),
+            dayLow: Math.min(stock.dayLow, nextPrice),
+          };
+        }
+      }
+    }, 2000);
+
+    timerId = setTimeout(poll, 1000);
+
+    return () => {
+      active = false;
+      clearTimeout(timerId);
+      clearInterval(simInterval);
+    };
+  }, [selectedSymbol, watchlist, stocks.length]);
+
+  useEffect(() => {
     if (stocks.length === 0) return;
 
     const start = performance.now();
