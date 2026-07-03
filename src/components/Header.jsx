@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 
-export default function Header({ stocks, onSelectStock }) {
+export default function Header({ stocks, onSelectStock, connectionStatus = 'connected' }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [dropdownVisible, setDropdownVisible] = useState(false);
@@ -190,8 +190,8 @@ export default function Header({ stocks, onSelectStock }) {
         </div>
 
         <div className="ws-status" role="status" aria-live="polite">
-          <span className="status-dot connected"></span>
-          <span>Live</span>
+          <span className={`status-dot ${connectionStatus === 'connected' ? 'connected' : connectionStatus === 'reconnecting' ? 'reconnecting' : 'disconnected'}`}></span>
+          <span>{connectionStatus === 'connected' ? 'Live' : connectionStatus === 'reconnecting' ? 'Reconnecting...' : 'Offline'}</span>
         </div>
       </div>
     </header>
