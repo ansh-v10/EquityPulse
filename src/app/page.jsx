@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import DataGrid from '../components/DataGrid';
@@ -76,6 +76,14 @@ export default function Home() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [debouncedFilters, setDebouncedFilters] = useState(DEFAULT_FILTERS);
 
+  const [connectionStatus, setConnectionStatus] = useState('connected');
+  const updatesBufferRef = useRef({});
+  const visibleSymbolsRef = useRef([]);
+
+  const handleVisibleSymbolsChange = useCallback((symbols) => {
+    visibleSymbolsRef.current = symbols;
+  }, []);
+
   useEffect(() => {
     const data = generateMockStocks(5000);
     setStocks(data);
@@ -95,6 +103,43 @@ export default function Home() {
 
     return () => clearTimeout(handler);
   }, [filters]);
+
+  useEffect(() => {
+    const batchInterval = setInterval(() => {
+      const buffer = updatesBufferRef.current;
+      if (Object.keys(buffer).length === 0) return;
+
+      setStocks(prevStocks => {
+        const updated = [...prevStocks];
+        let changed = false;
+        Object.keys(buffer).forEach(symbol => {
+          const idx = updated.findIndex(s => s.symbol === symbol);
+          if (idx !== -1) {
+            const existing = updated[idx];
+            const update = buffer[symbol];
+            if (existing.lastPrice !== update.lastPrice) {
+              updated[idx] = {
+                ...existing,
+                prevPrice: existing.lastPrice,
+                lastPrice: update.lastPrice,
+                changePercent: update.changePercent,
+                changeAbsolute: update.changeAbsolute,
+                previousClose: update.previousClose,
+                dayHigh: update.dayHigh,
+                dayLow: update.dayLow,
+                lastUpdatedTime: Date.now()
+              };
+              changed = true;
+            }
+          }
+        });
+        return changed ? updated : prevStocks;
+      });
+      updatesBufferRef.current = {};
+    }, 1500);
+
+    return () => clearInterval(batchInterval);
+  }, []);
 
   useEffect(() => {
     if (stocks.length === 0) return;
