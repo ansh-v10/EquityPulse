@@ -284,6 +284,8 @@ export function generateMockStocks(totalCount = 5000) {
       volumeVsAvg,
       inWatchlist: false,
       lastUpdated: Date.now(),
+      prevPrice: lastPrice,
+      lastUpdatedTime: 0
     });
   }
 
