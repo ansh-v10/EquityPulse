@@ -174,12 +174,17 @@ export default function DataGrid({
       const isSelected = selectedSymbol === stock.symbol;
       const isPositive = stock.changePercent >= 0;
 
+      const isRecentUpdate = Date.now() - stock.lastUpdatedTime < 1000;
+      const flashClass = isRecentUpdate
+        ? (stock.lastPrice > stock.prevPrice ? 'flash-up' : stock.lastPrice < stock.prevPrice ? 'flash-down' : '')
+        : '';
+
       rows.push(
         <div
           key={stock.symbol}
           role="row"
           aria-rowindex={i + 1}
-          className={`grid-row ${isSelected ? 'selected' : ''}`}
+          className={`grid-row ${isSelected ? 'selected' : ''} ${flashClass}`}
           style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
           onClick={() => {
             setHighlightedIndex(i);
