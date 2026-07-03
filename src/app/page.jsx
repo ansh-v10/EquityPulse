@@ -79,6 +79,7 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState('connected');
   const updatesBufferRef = useRef({});
   const visibleSymbolsRef = useRef([]);
+  const backoffRef = useRef(1000);
 
   const handleVisibleSymbolsChange = useCallback((symbols) => {
     visibleSymbolsRef.current = symbols;
@@ -191,13 +192,17 @@ export default function Home() {
         const headers = { 'X-API-Key': apiKey };
         const res = await fetch(`https://stock.indianapi.in/stock?name=${encodeURIComponent(symbol)}`, { headers });
         if (res.status === 429) {
-          timerId = setTimeout(poll, 5000);
+          setConnectionStatus('reconnecting');
+          backoffRef.current = Math.min(backoffRef.current * 1.5, 30000);
+          timerId = setTimeout(poll, backoffRef.current);
           return;
         }
 
         if (res.ok) {
           const data = await res.json();
           if (data && !data.error) {
+            setConnectionStatus('connected');
+            backoffRef.current = 1000;
             const livePrice = parseFloat(data.currentPrice?.NSE || data.currentPrice?.BSE || data.stockDetailsReusableData?.price);
             if (!isNaN(livePrice)) {
               const pct = parseFloat(data.percentChange || data.stockDetailsReusableData?.percentChange || '0');
@@ -215,7 +220,9 @@ export default function Home() {
         }
         timerId = setTimeout(poll, 400);
       } catch (err) {
-        timerId = setTimeout(poll, 4000);
+        setConnectionStatus('reconnecting');
+        backoffRef.current = Math.min(backoffRef.current * 1.5, 30000);
+        timerId = setTimeout(poll, backoffRef.current);
       }
     };
 
