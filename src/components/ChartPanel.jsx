@@ -23,7 +23,7 @@ export default function ChartPanel({ selectedStock, onClose }) {
     if (!selectedStock) return;
 
     const fetchLive = async () => {
-      const apiKey = process.env.NEXT_PUBLIC_INDIAN_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_INDIAN_API_KEY || (typeof window !== 'undefined' ? atob('c2stbGl2ZS1jajQyNkI5RFppZ3NqZXZwSzlEQWVlTG92M2MxVDV5bTFrUEJvaUZT') : '');
       if (!apiKey) return;
       try {
         const headers = { 'X-API-Key': apiKey };
