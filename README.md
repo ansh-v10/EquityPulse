@@ -1,18 +1,26 @@
-# React + Vite
+# EquityPulse - Professional Stock Screener
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+EquityPulse is a high-density, real-time stock screener built with Next.js, React.js, Lightweight Charts, and Tailwind-free vanilla CSS.
 
-Currently, two official plugins are available:
+## Architecture Specs
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### 1. Staggered API Polling Queue
+- To respect rate limits and keep network overhead small, the dashboard utilizes a prioritized polling queue that issues queries sequentially every 400ms.
+- **Priority Order**:
+  1. The selected stock (on-screen detail view).
+  2. Stocks added to the active Watchlist.
+  3. Currently visible stocks inside the viewport (tracked dynamically via virtual scroll indices).
+  4. Large-cap stock baseline baseline metrics.
 
-## React Compiler
+### 2. Exponential Backoff Reconnection Engine
+- Monitors API response headers and status codes.
+- On encountering a rate limit (`429`) or network fetch exception, it automatically transitions the connection indicator to `reconnecting` and enters a backoff retry schedule, multiplying the interval time progressively (up to a 30-second cap).
+- Recovers instantly to standard polling rates once the endpoint returns valid headers.
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+### 3. Batch Update Accumulator
+- Accumulates live pricing updates inside a reference buffer.
+- Flushes updates to the React state every 1.5 seconds in a single batch, eliminating frame drops during scroll actions and preventing excessive layout recalculations.
 
-Note: This will impact Vite dev & build performances.
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### 4. Real-time Price Simulation & Flash Feedback
+- Simulates minor ticks (±0.01% fluctuation) on non-polled stock elements to keep the grid dynamic, utilizing the batch flushing buffer.
+- Applies `.flash-up` (green) and `.flash-down` (red) keyframe flash overlays on virtual row indices, indicating real-time LTP movement driven directly by API baselines.
