@@ -334,6 +334,10 @@ body {
   border-bottom: 1px solid var(--border);
   background-color: var(--surface);
   cursor: pointer;
+  contain: layout style;
+  content-visibility: auto;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .grid-row:nth-child(even) {
