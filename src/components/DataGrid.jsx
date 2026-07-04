@@ -6,6 +6,81 @@ import { formatIndianNumber } from '../utils/mockData';
 const ROW_HEIGHT = 36;
 const OVERSCAN = 10;
 
+const GridRow = React.memo(({
+  stock,
+  index,
+  isSelected,
+  isStarred,
+  onSelect,
+  onToggleWatchlist,
+  ROW_HEIGHT
+}) => {
+  const isPositive = stock.changePercent >= 0;
+  const isRecentUpdate = Date.now() - stock.lastUpdatedTime < 1000;
+  const flashClass = isRecentUpdate
+    ? (stock.lastPrice > stock.prevPrice ? 'flash-up' : stock.lastPrice < stock.prevPrice ? 'flash-down' : '')
+    : '';
+
+  return (
+    <div
+      role="row"
+      aria-rowindex={index + 1}
+      className={`grid-row ${isSelected ? 'selected' : ''} ${flashClass}`}
+      style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}
+      onClick={onSelect}
+    >
+      <div className="grid-cell col-star" role="gridcell">
+        <button
+          className={`star-btn ${isStarred ? 'active' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleWatchlist(stock.symbol);
+          }}
+          aria-label={isStarred ? `Remove ${stock.symbol} from watchlist` : `Add ${stock.symbol} to watchlist`}
+        >
+          ★
+        </button>
+      </div>
+
+      <div className="grid-cell col-symbol sticky-left-0" role="gridcell">
+        {stock.symbol}
+      </div>
+
+      <div className="grid-cell col-company" role="gridcell" title={stock.companyName}>
+        {stock.companyName}
+      </div>
+
+      <div className="grid-cell col-sector" role="gridcell">
+        <span className="sector-badge" title={stock.sector}>
+          {stock.sector}
+        </span>
+      </div>
+
+      <div className="grid-cell col-ltp tabular-nums" role="gridcell">
+        {formatIndianNumber(stock.lastPrice, 'price')}
+      </div>
+
+      <div className={`grid-cell col-change-pct tabular-nums ${isPositive ? 'pos-val' : 'neg-val'}`} role="gridcell">
+        {isPositive ? '▲' : '▼'} {Math.abs(stock.changePercent).toFixed(2)}%
+      </div>
+
+      <div className={`grid-cell col-change-val tabular-nums ${isPositive ? 'pos-val' : 'neg-val'}`} role="gridcell">
+        {isPositive ? '+' : ''}{formatIndianNumber(stock.changeAbsolute)}
+      </div>
+
+      <div className="grid-cell col-volume tabular-nums" role="gridcell">
+        {formatIndianNumber(stock.volume, 'volume')}
+      </div>
+
+      <div className="grid-cell col-mcap tabular-nums" role="gridcell">
+        {formatIndianNumber(stock.marketCap, 'mcap')}
+      </div>
+    </div>
+  );
+});
+
+GridRow.displayName = 'GridRow';
+
 export default function DataGrid({
   stocks,
   selectedSymbol,
@@ -183,76 +258,25 @@ export default function DataGrid({
 
       const isStarred = watchlist.has(stock.symbol);
       const isSelected = selectedSymbol === stock.symbol;
-      const isPositive = stock.changePercent >= 0;
-
-      const isRecentUpdate = Date.now() - stock.lastUpdatedTime < 1000;
-      const flashClass = isRecentUpdate
-        ? (stock.lastPrice > stock.prevPrice ? 'flash-up' : stock.lastPrice < stock.prevPrice ? 'flash-down' : '')
-        : '';
 
       rows.push(
-        <div
+        <GridRow
           key={stock.symbol}
-          role="row"
-          aria-rowindex={i + 1}
-          className={`grid-row ${isSelected ? 'selected' : ''} ${flashClass}`}
-          style={{ top: i * ROW_HEIGHT, height: ROW_HEIGHT }}
-          onClick={() => {
+          stock={stock}
+          index={i}
+          isSelected={isSelected}
+          isStarred={isStarred}
+          onSelect={() => {
             setHighlightedIndex(i);
             onSelectStock(stock.symbol);
           }}
-        >
-          <div className="grid-cell col-star" role="gridcell">
-            <button
-              className={`star-btn ${isStarred ? 'active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleWatchlist(stock.symbol);
-              }}
-              aria-label={isStarred ? `Remove ${stock.symbol} from watchlist` : `Add ${stock.symbol} to watchlist`}
-            >
-              ★
-            </button>
-          </div>
-
-          <div className="grid-cell col-symbol sticky-left-0" role="gridcell">
-            {stock.symbol}
-          </div>
-
-          <div className="grid-cell col-company" role="gridcell" title={stock.companyName}>
-            {stock.companyName}
-          </div>
-
-          <div className="grid-cell col-sector" role="gridcell">
-            <span className="sector-badge" title={stock.sector}>
-              {stock.sector}
-            </span>
-          </div>
-
-          <div className="grid-cell col-ltp tabular-nums" role="gridcell">
-            {formatIndianNumber(stock.lastPrice, 'price')}
-          </div>
-
-          <div className={`grid-cell col-change-pct tabular-nums ${isPositive ? 'pos-val' : 'neg-val'}`} role="gridcell">
-            {isPositive ? '▲' : '▼'} {Math.abs(stock.changePercent).toFixed(2)}%
-          </div>
-
-          <div className={`grid-cell col-change-val tabular-nums ${isPositive ? 'pos-val' : 'neg-val'}`} role="gridcell">
-            {isPositive ? '+' : ''}{formatIndianNumber(stock.changeAbsolute)}
-          </div>
-
-          <div className="grid-cell col-volume tabular-nums" role="gridcell">
-            {formatIndianNumber(stock.volume, 'volume')}
-          </div>
-
-          <div className="grid-cell col-mcap tabular-nums" role="gridcell">
-            {formatIndianNumber(stock.marketCap, 'mcap')}
-          </div>
-        </div>
+          onToggleWatchlist={onToggleWatchlist}
+          ROW_HEIGHT={ROW_HEIGHT}
+        />
       );
     }
     return rows;
-  }, [sortedStocks, startIndex, endIndex, watchlist, selectedSymbol, highlightedIndex, onSelectStock, onToggleWatchlist]);
+  }, [sortedStocks, startIndex, endIndex, watchlist, selectedSymbol, onSelectStock, onToggleWatchlist]);
 
   return (
     <div className="grid-panel">
