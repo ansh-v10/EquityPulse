@@ -47,7 +47,7 @@ export default function Header({ stocks, onSelectStock, connectionStatus = 'conn
     };
 
     fetchIndices();
-    const apiInterval = setInterval(fetchIndices, 30000);
+    const apiInterval = setInterval(fetchIndices, 60000);
 
     const simInterval = setInterval(() => {
       setNifty(prev => {
@@ -192,7 +192,7 @@ export default function Header({ stocks, onSelectStock, connectionStatus = 'conn
 
         <div className="ws-status" role="status" aria-live="polite">
           <span className={`status-dot ${connectionStatus === 'connected' ? 'connected' : connectionStatus === 'reconnecting' ? 'reconnecting' : 'disconnected'}`}></span>
-          <span>{connectionStatus === 'connected' ? 'Live' : connectionStatus === 'reconnecting' ? 'Reconnecting...' : 'Offline'}</span>
+          <span>{connectionStatus === 'connected' ? 'Live' : connectionStatus === 'reconnecting' ? 'Cooling down...' : 'Offline'}</span>
         </div>
       </div>
     </header>
