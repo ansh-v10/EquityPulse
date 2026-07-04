@@ -1,0 +1,14 @@
+--- STARTING EQUITYPULSE AUTOMATED UNIT TESTS ---
+✅ PASS: generateMockStocks should output exactly 100 stocks
+✅ PASS: first stock should have a valid symbol
+✅ PASS: first stock price should be positive
+✅ PASS: watchlist should store starred symbols
+✅ PASS: watchlist should return false for non-starred symbols
+✅ PASS: range filter should have highest selectivity (rank 1)
+✅ PASS: single value filter should have second selectivity (rank 2)
+✅ PASS: multi value filter should have third selectivity (rank 3)
+✅ PASS: base64 decoding should match the original API key fallback
+✅ PASS: state merger should successfully apply fetched price
+✅ PASS: state merger should cache previous price for flashing feedback
+✅ PASS: state merger should update daily bounds from API data
+--- ALL UNIT TESTS COMPLETED SUCCESSFULLY ---
