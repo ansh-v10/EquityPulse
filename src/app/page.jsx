@@ -73,7 +73,6 @@ function SkeletonGrid() {
 export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [stocks, setStocks] = useState([]);
-  const [filteredStocks, setFilteredStocks] = useState([]);
   const [watchlist, setWatchlist] = useState(new Set());
   const [selectedSymbol, setSelectedSymbol] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -93,7 +92,6 @@ export default function Home() {
   useEffect(() => {
     const data = generateMockStocks(5000);
     setStocks(data);
-    setFilteredStocks(data);
 
     const timer = setTimeout(() => {
       setIsLoading(false);
@@ -260,8 +258,8 @@ export default function Home() {
     };
   }, [selectedSymbol, watchlist, stocks.length]);
 
-  useEffect(() => {
-    if (stocks.length === 0) return;
+  const filteredStocks = useMemo(() => {
+    if (stocks.length === 0) return [];
 
     const start = performance.now();
 
@@ -397,7 +395,7 @@ export default function Home() {
     const filterCount = activePredicates.length;
     console.log(`${filterCount} filters: ${(end - start).toFixed(2)}ms`);
 
-    setFilteredStocks(results);
+    return results;
   }, [debouncedFilters, stocks, watchlist]);
 
   const handleFilterChange = (key, value) => {
