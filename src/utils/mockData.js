@@ -54,15 +54,18 @@ const SECTOR_CONFIGS = {
   'Others (Textiles, Paper, etc.)': { count: 500, avgPE: 16.0, avgBeta: 1.00, industries: ['Textiles', 'Paper & Pulp', 'Packaging', 'Sugar', 'Gems & Jewellery', 'Trading Houses'] }
 };
 
-export function generateMockStocks(totalCount = 5000) {
+export function generateMockStocks(totalCount = 5000, rawStocksList = null) {
   const stocks = [];
   const symbolMap = new Set();
 
+  if (rawStocksList && rawStocksList.length > 0) {
+    totalCount = rawStocksList.length;
+  }
+
   const sectorPool = [];
-  for (const [sectorName, config] of Object.entries(SECTOR_CONFIGS)) {
-    for (let i = 0; i < config.count; i++) {
-      sectorPool.push(sectorName);
-    }
+  const sectorKeys = Object.keys(SECTOR_CONFIGS);
+  for (let i = 0; i < totalCount; i++) {
+    sectorPool.push(sectorKeys[i % sectorKeys.length]);
   }
 
   for (let i = sectorPool.length - 1; i > 0; i--) {
@@ -71,10 +74,18 @@ export function generateMockStocks(totalCount = 5000) {
   }
 
   const mcapCategories = [];
-  for (let i = 0; i < 100; i++) mcapCategories.push({ cat: 'Large Cap', minMcap: 50000, maxMcap: 2000000 });
-  for (let i = 0; i < 400; i++) mcapCategories.push({ cat: 'Mid Cap', minMcap: 10000, maxMcap: 49999 });
-  for (let i = 0; i < 1500; i++) mcapCategories.push({ cat: 'Small Cap', minMcap: 1000, maxMcap: 9999 });
-  for (let i = 0; i < 3000; i++) mcapCategories.push({ cat: 'Micro Cap', minMcap: 50, maxMcap: 999 });
+  for (let i = 0; i < totalCount; i++) {
+    const r = i / totalCount;
+    if (r < 0.02) {
+      mcapCategories.push({ cat: 'Large Cap', minMcap: 50000, maxMcap: 2000000 });
+    } else if (r < 0.10) {
+      mcapCategories.push({ cat: 'Mid Cap', minMcap: 10000, maxMcap: 49999 });
+    } else if (r < 0.40) {
+      mcapCategories.push({ cat: 'Small Cap', minMcap: 1000, maxMcap: 9999 });
+    } else {
+      mcapCategories.push({ cat: 'Micro Cap', minMcap: 50, maxMcap: 999 });
+    }
+  }
 
   const symbolPrefixes = [
     'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'BHARTIARTL', 'SBI', 'LIC', 'LICI', 'ITC',
@@ -99,12 +110,20 @@ export function generateMockStocks(totalCount = 5000) {
     const config = SECTOR_CONFIGS[sector];
 
     let symbol = '';
-    if (i < symbolPrefixes.length) {
-      symbol = symbolPrefixes[i];
+    let companyName = '';
+    if (rawStocksList && rawStocksList[i]) {
+      const item = rawStocksList[i];
+      symbol = item['nse-code'] || item['bse-code'] || `STOCK_${i}`;
+      companyName = item.name || `${symbol} Ltd.`;
     } else {
-      const basePrefix = symbolPrefixes[i % symbolPrefixes.length];
-      const suffix = Math.floor(i / symbolPrefixes.length).toString().padStart(3, '0');
-      symbol = `${basePrefix}${suffix}`;
+      if (i < symbolPrefixes.length) {
+        symbol = symbolPrefixes[i];
+      } else {
+        const basePrefix = symbolPrefixes[i % symbolPrefixes.length];
+        const suffix = Math.floor(i / symbolPrefixes.length).toString().padStart(3, '0');
+        symbol = `${basePrefix}${suffix}`;
+      }
+      companyName = `${symbol.replace(/\d+/g, '')} ${mcapInfo.cat === 'Large Cap' ? 'Industries' : mcapInfo.cat === 'Mid Cap' ? 'Technologies' : mcapInfo.cat === 'Small Cap' ? 'India' : 'Enterprises'} Ltd.`;
     }
 
     if (symbolMap.has(symbol)) {
@@ -112,7 +131,6 @@ export function generateMockStocks(totalCount = 5000) {
     }
     symbolMap.add(symbol);
 
-    const companyName = `${symbol.replace(/\d+/g, '')} ${mcapInfo.cat === 'Large Cap' ? 'Industries' : mcapInfo.cat === 'Mid Cap' ? 'Technologies' : mcapInfo.cat === 'Small Cap' ? 'India' : 'Enterprises'} Ltd.`;
     const industry = config.industries[Math.floor(Math.random() * config.industries.length)];
 
     const marketCap = Math.round(mcapInfo.minMcap + Math.random() * (mcapInfo.maxMcap - mcapInfo.minMcap));

@@ -90,14 +90,35 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const data = generateMockStocks(5000);
-    setStocks(data);
+    let active = true;
+    const fetchAllStocks = async () => {
+      try {
+        const res = await fetch('https://analyst.indianapi.in/static/all_stocks.json');
+        if (res.ok) {
+          const list = await res.json();
+          if (active) {
+            const data = generateMockStocks(list.length, list);
+            setStocks(data);
+          }
+        } else {
+          throw new Error('Failed to fetch static stock list');
+        }
+      } catch (err) {
+        if (active) {
+          const data = generateMockStocks(5000);
+          setStocks(data);
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-
-    return () => clearTimeout(timer);
+    fetchAllStocks();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
