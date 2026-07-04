@@ -113,25 +113,30 @@ export default function DataGrid({
   const lastScrollTopRef = useRef(0);
   const rafIdRef = useRef(null);
 
-  const onScroll = useCallback((e) => {
-    const nextScrollTop = e.currentTarget.scrollTop;
-    lastScrollTopRef.current = nextScrollTop;
-
-    if (!rafIdRef.current) {
-      rafIdRef.current = window.requestAnimationFrame(() => {
-        setScrollTop(lastScrollTopRef.current);
-        rafIdRef.current = null;
-      });
-    }
-  }, []);
-
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScrollImperative = () => {
+      const nextScrollTop = container.scrollTop;
+      lastScrollTopRef.current = nextScrollTop;
+
+      if (!rafIdRef.current) {
+        rafIdRef.current = window.requestAnimationFrame(() => {
+          setScrollTop(lastScrollTopRef.current);
+          rafIdRef.current = null;
+        });
+      }
+    };
+
+    container.addEventListener('scroll', handleScrollImperative, { passive: true });
     return () => {
+      container.removeEventListener('scroll', handleScrollImperative);
       if (rafIdRef.current) {
         window.cancelAnimationFrame(rafIdRef.current);
       }
     };
-  }, []);
+  }, [containerHeight]);
 
   const handleSort = (columnKey) => {
     if (sortColumn === columnKey) {
@@ -283,7 +288,6 @@ export default function DataGrid({
       <div
         ref={containerRef}
         className="grid-scroll-container"
-        onScroll={onScroll}
         role="grid"
         aria-label="Stock Screener Results"
         aria-rowcount={totalRows}
