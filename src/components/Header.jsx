@@ -128,7 +128,7 @@ export default function Header({ stocks, onSelectStock, connectionStatus = 'conn
     <header className="header" role="banner">
       <div className="logo-section">
         <div className="logo-icon">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#0d1117' }}>
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#0d1117' }}>
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
           </svg>
         </div>
@@ -142,6 +142,7 @@ export default function Header({ stocks, onSelectStock, connectionStatus = 'conn
           type="text"
           className="search-input"
           placeholder="Search by symbol or company... (e.g. RELIANCE)"
+          aria-label="Search stocks by symbol or company name"
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
