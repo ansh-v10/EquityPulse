@@ -460,7 +460,7 @@ export default function Home() {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  const getActiveChips = () => {
+  const activeChips = useMemo(() => {
     const chips = [];
 
     const addRangeChip = (key, label, unit = '') => {
@@ -547,10 +547,11 @@ export default function Home() {
     }
 
     return chips;
-  };
+  }, [filters]);
 
-  const activeChips = getActiveChips();
-  const selectedStockObj = stocks.find(s => s.symbol === selectedSymbol);
+  const selectedStockObj = useMemo(() => {
+    return stocks.find(s => s.symbol === selectedSymbol);
+  }, [stocks, selectedSymbol]);
 
   return (
     <div id="app">
