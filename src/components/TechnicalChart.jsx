@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, CandlestickSeries, LineSeries, AreaSeries } from 'lightweight-charts';
 
 function calculateSMA(data, period) {
@@ -124,6 +124,41 @@ export default function TechnicalChart({
   const candleSeriesRef = useRef(null);
   const indicatorSeriesRef = useRef({});
   const rsiSeriesRef = useRef(null);
+
+  const sma20 = useMemo(() => {
+    if (!ohlcvData || ohlcvData.length === 0) return [];
+    return calculateSMA(ohlcvData, 20);
+  }, [ohlcvData]);
+
+  const sma50 = useMemo(() => {
+    if (!ohlcvData || ohlcvData.length === 0) return [];
+    return calculateSMA(ohlcvData, 50);
+  }, [ohlcvData]);
+
+  const sma200 = useMemo(() => {
+    if (!ohlcvData || ohlcvData.length === 0) return [];
+    return calculateSMA(ohlcvData, 200);
+  }, [ohlcvData]);
+
+  const ema12 = useMemo(() => {
+    if (!ohlcvData || ohlcvData.length === 0) return [];
+    return calculateEMA(ohlcvData, 12);
+  }, [ohlcvData]);
+
+  const ema26 = useMemo(() => {
+    if (!ohlcvData || ohlcvData.length === 0) return [];
+    return calculateEMA(ohlcvData, 26);
+  }, [ohlcvData]);
+
+  const bbData = useMemo(() => {
+    if (!ohlcvData || ohlcvData.length === 0) return { upper: [], middle: [], lower: [], area: [] };
+    return calculateBollinger(ohlcvData, 20, 2);
+  }, [ohlcvData]);
+
+  const rsiData = useMemo(() => {
+    if (!ohlcvData || ohlcvData.length === 0) return [];
+    return calculateRSI(ohlcvData, 14);
+  }, [ohlcvData]);
 
   const [tooltipState, setTooltipState] = useState({
     visible: false,
@@ -356,44 +391,43 @@ export default function TechnicalChart({
     const indSeries = indicatorSeriesRef.current;
 
     if (activeIndicators.SMA20) {
-      indSeries.SMA20.setData(calculateSMA(ohlcvData, 20));
+      indSeries.SMA20.setData(sma20);
     } else {
       indSeries.SMA20.setData([]);
     }
 
     if (activeIndicators.SMA50) {
-      indSeries.SMA50.setData(calculateSMA(ohlcvData, 50));
+      indSeries.SMA50.setData(sma50);
     } else {
       indSeries.SMA50.setData([]);
     }
 
     if (activeIndicators.SMA200) {
-      indSeries.SMA200.setData(calculateSMA(ohlcvData, 200));
+      indSeries.SMA200.setData(sma200);
     } else {
       indSeries.SMA200.setData([]);
     }
 
     if (activeIndicators.EMA12) {
-      indSeries.EMA12.setData(calculateEMA(ohlcvData, 12));
+      indSeries.EMA12.setData(ema12);
     } else {
       indSeries.EMA12.setData([]);
     }
 
     if (activeIndicators.EMA26) {
-      indSeries.EMA26.setData(calculateEMA(ohlcvData, 26));
+      indSeries.EMA26.setData(ema26);
     } else {
       indSeries.EMA26.setData([]);
     }
 
     if (activeIndicators.BB) {
-      const bb = calculateBollinger(ohlcvData, 20, 2);
-      indSeries.bbUpper.setData(bb.upper);
-      indSeries.bbMiddle.setData(bb.middle);
-      indSeries.bbLower.setData(bb.lower);
-      indSeries.bbArea.setData(bb.upper.map((item, idx) => ({
+      indSeries.bbUpper.setData(bbData.upper);
+      indSeries.bbMiddle.setData(bbData.middle);
+      indSeries.bbLower.setData(bbData.lower);
+      indSeries.bbArea.setData(bbData.upper.map((item, idx) => ({
         time: item.time,
         value: item.value,
-        target: bb.lower[idx].value
+        target: bbData.lower[idx].value
       })));
     } else {
       indSeries.bbUpper.setData([]);
@@ -403,9 +437,9 @@ export default function TechnicalChart({
     }
 
     if (activeIndicators.RSI && rsiSeriesRef.current) {
-      rsiSeriesRef.current.setData(calculateRSI(ohlcvData, 14));
+      rsiSeriesRef.current.setData(rsiData);
     }
-  }, [ohlcvData, activeIndicators]);
+  }, [ohlcvData, activeIndicators, sma20, sma50, sma200, ema12, ema26, bbData, rsiData]);
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
