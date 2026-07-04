@@ -2,7 +2,7 @@
 
 EquityPulse is a high-density, real-time stock screener built with Next.js, React.js, Lightweight Charts, and Tailwind-free vanilla CSS.
 
-**Production Deployment URL**: [https://equity-pulse.vercel.app](https://equity-pulse.vercel.app)
+**Production Deployment URL**: [https://equity-chi.vercel.app](https://equity-chi.vercel.app)
 
 ---
 
