@@ -1,11 +1,16 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import DataGrid from '../components/DataGrid';
-import ChartPanel from '../components/ChartPanel';
 import { generateMockStocks } from '../utils/mockData';
+
+const ChartPanel = dynamic(() => import('../components/ChartPanel'), {
+  ssr: false,
+  loading: () => <div className="chart-panel-loading" style={{ width: '400px', height: '100%', background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)' }}>Loading Chart...</div>
+});
 
 const DEFAULT_FILTERS = {
   marketCap: [0, 500000],
